@@ -36,7 +36,7 @@ def load_model_from_gcs(credentials: service_account.Credentials, model_name: st
     blob_name = f"{GCS_PATH}/{model_name}"
     blob = client.bucket(GCS_BUCKET).blob(blob_name)
 
-    if not blob.exists:
+    if not blob.exists():
         raise FileNotFoundError(f"Model Artifact not found @ {blob_name}")
     with tempfile.TemporaryDirectory() as tmp_dir:
         local_path = os.path.join(tmp_dir, os.path.basename(blob_name))
@@ -62,7 +62,7 @@ def prepare_input_data(records : list[dict[str, any]], numeric_features: list[st
     return df
 
 
-def run_model(artifact : dict[str, any], records : list[dict[str, any]]) -> pd.DataFrame:
+def run_model(artifact : dict[str, any], records : list[dict[str, any]]) -> str:
     """Execute Model with inputs"""
     pipeline = artifact.get("pipeline")
     numeric_features = artifact.get("numeric_features")
@@ -74,11 +74,10 @@ def run_model(artifact : dict[str, any], records : list[dict[str, any]]) -> pd.D
 
     result = X_new.copy()
     result[f"PREDICTED_{label}"] = predicted_op * 100
-    return result
+    return result.to_json(orient="records", indent=3)
 
 
 if __name__ == "__main__":
-
     sample_inputs = [{
         "HOUSE_AGE": 1,
         "HOUSE_AREA": 850.0,

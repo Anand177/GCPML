@@ -1,7 +1,5 @@
-#
+# Docker build
 docker build -t cloud-run-simple:v1 .
-
-gcloud auth login
 
 # Configure Docker Auth
 gcloud auth configure-docker us-central1-docker.pkg.dev
