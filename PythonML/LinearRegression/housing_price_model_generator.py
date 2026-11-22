@@ -1,4 +1,3 @@
-from ..config import Config
 from datetime import datetime, timezone
 from google.cloud import bigquery, storage
 from google.oauth2 import service_account
@@ -18,14 +17,16 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 log = logging.getLogger(__file__)
 
 # GCP Configurations
-GCP_PROJECT_ID = Config.GCP_PROJECT_ID
-GCP_SCOPE = Config.GCP_SCOPE
-GCP_SA_KEY = Path(Config.GCP_KEY_PATH) / Config.GCP_KEY_FILE
+GCP_PROJECT_ID = "gcp-project-375309"
+GCP_SCOPE = "https://www.googleapis.com/auth/cloud-platform"
+GCP_SA_KEY = "C:\\Learning\\AI\\Key\\gcp-project-375309-e4a68a2d2055.json"
 
-BQ_TABLE = f"{GCP_PROJECT_ID}.{Config.BQ_DATASET_ID}.{Config.BQ_HOUSING_TABLE}"
+BQ_DATASET_ID = "ml"
+BQ_HOUSING_TABLE_ID = "housing_detail_raw"
+BQ_TABLE = f"{GCP_PROJECT_ID}.{BQ_DATASET_ID}.{BQ_HOUSING_TABLE_ID}"
 
-GCS_BUCKET = Config.GCS_BUCKET
-GCS_PATH = Config.GCS_PATH
+GCS_BUCKET = "anand12345"
+GCS_PATH = "ML/Models"
 
 # ML Configurations
 NUMERIC_FEATURES = ["HOUSE_AGE", "HOUSE_AREA", "TOTAL_ROOMS", "TOTAL_BEDROOMS", "POPULATION",
@@ -48,21 +49,22 @@ def get_gcp_credentials() -> service_account.Credentials:
     """ Get GCP Credentials from JSON Key"""
     if not os.path.exists (GCP_SA_KEY):
         raise FileNotFoundError (f" GCP SA Key {GCP_SA_KEY} not found")
+    log.info("Authentication Successful")
     return service_account.Credentials.from_service_account_file(GCP_SA_KEY,
             scopes = [GCP_SCOPE])
 
 
 def load_gcs_training_data(credentials : service_account.Credentials) -> pd.DataFrame:
     """Pull Data from GCS for training"""
-    log.info(f"Querying {BQ_TABLE}")
+    log.info("Querying %s", BQ_TABLE)
     client = bigquery.Client(project = GCP_PROJECT_ID, credentials = credentials)
     df = client.query(TRAINING_QUERY).to_dataframe()
     df["HOUSE_AREA"] = df["HOUSE_AREA"].astype(float)
     df["ZIP"] = df["ZIP"].astype(str)
 
-    log.info(f"Loaded {len(df)} records from {BQ_TABLE} table")
+    log.info("Loaded %d records from %s table", len(df), BQ_TABLE)
     df = df.dropna(subset=NUMERIC_FEATURES + CATEGORICAL_FEATURES + [LABEL])
-    log.info(f"{len(df)} selected for training")
+    log.info("%d selected for training", len(df))
     return df
 
 
@@ -79,24 +81,24 @@ def build_pipeline() -> Pipeline:
 
 def train_and_evaluate(df: pd.DataFrame):
     X = df[NUMERIC_FEATURES + CATEGORICAL_FEATURES ]
-    Y = df[LABEL]
+    y = df[LABEL]
 
-    X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=TEST_SIZE, 
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=TEST_SIZE, 
             random_state=RANDOM_STATE)
-    log.info(f"Train Rows: {len(X_train)} | Test Rows: {len(X_test)}")
+    log.info("Train Rows: %d | Test Rows: %d", len(X_train), len(X_test))
 
     pipeline = build_pipeline()
-    pipeline.fit(X = X_train, y = Y_train)
+    pipeline.fit(X = X_train, y = y_train)
     preds = pipeline.predict(X=X_test)
     metrics = {
-        "mean_absolute_error" : float(mean_absolute_error(Y_test, preds)),
-        "root_mean_squared_error" : float(mean_squared_error(Y_test, preds) ** 0.5 ),
-        "r2" : float(r2_score(Y_test, preds)),
+        "mean_absolute_error" : float(mean_absolute_error(y_test, preds)),
+        "root_mean_squared_error" : float(mean_squared_error(y_test, preds) ** 0.5 ),
+        "r2" : float(r2_score(y_test, preds)),
         "train_rows" : int(len(X_train)),
         "test_rows" : int(len(X_test))
     }
     log.info("Model Successfully Created")
-    log.info(f"Test Metrics: {metrics} ")
+    log.info("Test Metrics: %s", metrics)
     return pipeline, metrics
 
 
@@ -127,9 +129,8 @@ def upload_model_to_gcs(pipeline: Pipeline, metrics: dict,
     return blob_name
 
 
-def main():
+if __name__ == "__main__":
     credentials = get_gcp_credentials()
     df = load_gcs_training_data(credentials)
     pipeline, metrics = train_and_evaluate(df)
     upload_model_to_gcs(pipeline, metrics, credentials)
-    return
