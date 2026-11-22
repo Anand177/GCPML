@@ -56,7 +56,7 @@ def run_model(artifact : dict[str, any], records : list[dict[str, any]]) -> str:
 
     X_new = prepare_input_data(records, numeric_features, categorical_features)
     predicted_op = pipeline.predict(X_new)
-    output = [{**rec, "PREDICTED_PRICE": float(p)} for rec, p in zip(records, predicted_op)]
+    output = [{**rec, "PREDICTED_PRICE": float(p*100)} for rec, p in zip(records, predicted_op)]
     log.info("Predicted Output %s", output)
     return output
 
